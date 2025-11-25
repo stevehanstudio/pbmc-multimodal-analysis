@@ -1,0 +1,40 @@
+name: sc-multiomics
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # Python version
+  - python=3.11
+  
+  # Core single-cell analysis
+  - scanpy
+  - muon  # Multimodal analysis
+  
+  # Data manipulation and analysis
+  - pandas
+  - numpy
+  - scipy
+  - scikit-learn
+  
+  # Visualization
+  - matplotlib
+  - seaborn
+  
+  # Jupyter notebook
+  - jupyter
+  - ipykernel
+  
+  # Additional useful packages
+  - anndata  # Data structure for scanpy
+  - leidenalg  # Clustering algorithm
+  - python-igraph  # Graph analysis
+  
+  # Optional: R support (uncomment if using R notebooks)
+  # - r-base>=4.0
+  # - r-irkernel
+  # - r-seurat
+  # - r-ggplot2
+  # - r-dplyr
+  # - r-patchwork
+

@@ -1,0 +1,33 @@
+# Git attributes for proper handling of different file types
+
+# Jupyter notebooks
+*.ipynb text diff=jupyternotebook
+
+# Python files
+*.py text diff=python
+
+# Documentation
+*.md text
+*.txt text
+
+# Data files - binary
+*.h5ad binary
+*.h5mu binary
+*.h5 binary
+*.mtx.gz binary
+*.csv.gz binary
+*.tsv.gz binary
+*.tar binary
+*.tgz binary
+*.gz binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.svg text
+*.pdf binary
+
+# Excel files
+*.xlsx binary
+*.xls binary

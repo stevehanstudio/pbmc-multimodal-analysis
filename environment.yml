@@ -20,6 +20,7 @@ dependencies:
   # Visualization
   - matplotlib
   - seaborn
+  - plotly  # Interactive visualizations
   
   # Jupyter notebook
   - jupyter

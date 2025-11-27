@@ -8,14 +8,38 @@ Comprehensive analysis of the GSE164378 dataset from the Hao et al. (2021) Cell 
 **Paper**: Hao, Y., et al. (2021). "Integrated analysis of multimodal single-cell data." *Cell* 184, 3573-3587.e29.  
 **DOI**: [10.1016/j.cell.2021.04.048](https://doi.org/10.1016/j.cell.2021.04.048)
 
+## 🧭 Background & Motivation
+
+- **Previous experience**: I first built a single-cell RNA/ATAC multi-omics workflow for the SNARE-seq GSE126074 dataset ([bio2a-multiomics](https://github.com/stevehanstudio/bio2a-multiomics)). That project taught me how to align chromatin accessibility with transcription at the single-cell level.
+- **Mentorship guidance**: During a Genentech mentorship meeting, Bryan Ocutt recommended the Hao et al. PBMC study (GSE164378) as the best next step to push my multimodal skills—especially WNN integration of RNA + protein data.
+- **Career goal**: This repository documents that deep dive and serves as part of my portfolio for upcoming bioinformatics internships, highlighting deliberate skill growth and mentor-driven learning.
+
 ### Dataset Contents
 - **Sample**: Human Peripheral Blood Mononuclear Cells (PBMCs)
 - **Cells**: ~161,764 cells (3' data)
 - **Modalities**:
-  - RNA-seq: Gene expression (~33,000 genes)
-  - ADT (CITE-seq): Surface protein expression (~200 proteins)
-  - HTO: Hashtag oligonucleotides for sample multiplexing
-  - TCR: T cell receptor sequences
+  - **RNA-seq**: Gene expression (~33,000 genes)
+  - **ADT (CITE-seq)**: Surface protein expression (~200 proteins)
+  - **HTO**: Hashtag oligonucleotides for sample multiplexing
+  - **TCR**: T cell receptor sequences
+
+### Key Concepts
+
+**What is ADT/CITE-seq?**
+- **ADT** (Antibody-Derived Tags) measures surface protein expression in single cells
+- **CITE-seq** (Cellular Indexing of Transcriptomes and Epitopes by Sequencing) is the technology that enables simultaneous measurement of RNA and proteins
+- **How it works**: Antibodies conjugated to DNA oligonucleotides bind to surface proteins; the DNA tags are sequenced alongside RNA
+- **Why it's valuable**: 
+  - Direct protein measurement (not inferred from RNA)
+  - Complements RNA data with different biological information
+  - Particularly powerful for immune cells with well-characterized surface markers (CD4, CD8, CD19, etc.)
+  - Validates RNA-based findings (e.g., CD4 RNA vs CD4 protein expression)
+
+**What is WNN?**
+- **Weighted-Nearest Neighbor (WNN)** analysis integrates multiple data modalities by learning modality-specific weights for each cell
+- Determines which modality (RNA vs protein) is most informative for each cell's identity
+- Creates an integrated similarity graph that leverages the strengths of both modalities
+- Results in improved cell type resolution compared to single-modality analysis
 
 ## 🎯 Project Structure
 
@@ -52,7 +76,7 @@ pbmc-multimodal-analysis/
 - **`wnn_multimodal_integration.ipynb`**: Multimodal WNN integration
 
 **R Notebooks:**
-- **`explore_GSE164378_R.ipynb`**: Complete RNA-seq analysis (Seurat) ✨ NEW
+- **`explore_GSE164378_R.ipynb`**: Complete RNA-seq analysis (Seurat)
 
 **Utilities:**
 - **`download_geo_dataset.py`**: Data download module with functions:
@@ -105,7 +129,7 @@ Integrates RNA-seq and protein (ADT) data using WNN:
 
 **Output**: `GSE164378_multimodal_wnn.h5mu` or combined AnnData files
 
-### 📊 R Analysis (Seurat) ✨ NEW
+### 📊 R Analysis (Seurat)
 
 #### Notebook 3: `explore_GSE164378_R.ipynb`
 **Single-modality RNA-seq analysis in R**
@@ -245,6 +269,102 @@ jupyter notebook wnn_multimodal_integration.ipynb
 3. **Validation**: Protein expression validates RNA-based predictions
 4. **Rare Populations**: Surface protein markers reveal rare cell types
 
+## 💡 Key Insights & Learnings
+
+This section documents what I learned from this analysis and demonstrates my understanding of both the computational methods and biological interpretation.
+
+### Why Different Normalization Methods?
+
+**RNA-seq: Total count + log(x+1)**
+- **Why**: RNA-seq data has high variance across genes and cells. Total count normalization accounts for sequencing depth differences, while log transformation stabilizes variance and makes the data more normally distributed for downstream PCA.
+- **Learning**: The log transformation is crucial because gene expression follows a log-normal distribution, not a normal distribution. This is why we see better separation in PCA space after log transformation.
+
+**ADT/Protein: CLR (Centered Log-Ratio)**
+- **Why**: Protein counts are compositional—they represent proportions of total protein signal per cell. CLR normalizes relative to the geometric mean, preventing artifacts from cells with very high or low total protein counts.
+- **Learning**: This was a key insight—protein data requires different normalization because it's fundamentally different from RNA data. Using log-normalization on protein data would incorrectly treat it as independent counts rather than compositional data.
+
+### Why WNN Over Simple Concatenation?
+
+**The Problem**: Simply concatenating RNA and protein features doesn't work well because:
+- Different scales (RNA: ~33K features, ADT: ~200 features)
+- Different noise profiles (RNA has dropout, ADT is more sparse but less noisy)
+- Different biological information (RNA captures transcriptional state, ADT captures surface phenotype)
+
+**The WNN Solution**: 
+- Learns which modality is more informative for each cell's identity
+- Some cells are better characterized by RNA (e.g., activated T cells with high cytokine expression)
+- Others are better characterized by protein (e.g., resting T cells with stable surface markers)
+- Creates a weighted graph that leverages the strengths of both modalities
+
+**Learning**: This taught me that multimodal integration isn't just about combining data—it's about intelligently weighting different information sources based on their relevance to each cell's identity.
+
+### Biological Insights from Multimodal Analysis
+
+**1. Validation of RNA-based Annotations**
+- Protein markers (e.g., CD4, CD8, CD19) directly validate cell type assignments made from RNA
+- This is particularly important for immune cells where surface markers are well-characterized
+- **Learning**: Multimodal data provides built-in validation—if RNA says "T cell" and CD3 protein is high, we have confidence in the annotation
+
+**2. Identification of Rare Populations**
+- Some cell types (e.g., plasmacytoid dendritic cells) have distinctive protein signatures but subtle RNA differences
+- Protein markers can identify rare populations that might be missed in RNA-only analysis
+- **Learning**: Different modalities excel at identifying different cell types—multimodal analysis captures the full diversity
+
+**3. Resolution of Ambiguous Clusters**
+- Some RNA clusters split into multiple distinct populations when protein data is considered
+- Example: A single "T cell" cluster in RNA might separate into CD4+ and CD8+ T cells using protein markers
+- **Learning**: Multimodal integration improves resolution, especially for closely related cell types
+
+### Technical Challenges & Solutions
+
+**Challenge 1: WNN Graph Computation**
+- **Problem**: Initial attempts failed because `muon` requires modality-specific neighbor graphs to be computed first
+- **Solution**: Learned that `mu.pp.neighbors()` expects pre-computed neighbors for each modality
+- **Learning**: Understanding the underlying algorithm (WNN needs per-modality KNN graphs) helped debug the issue
+
+**Challenge 2: Metadata Propagation**
+- **Problem**: Cell type annotations from RNA data weren't available in the MuData object for plotting
+- **Solution**: Explicitly copied annotations from RNA AnnData to MuData.obs
+- **Learning**: MuData is a container—metadata must be explicitly propagated to the top level for visualization
+
+**Challenge 3: Normalization Choice**
+- **Problem**: Initially tried log-normalization for ADT data (like RNA)
+- **Solution**: Researched and implemented CLR normalization, which is standard for compositional data
+- **Learning**: Different data types require different preprocessing—understanding the data structure is crucial
+
+### Methodological Choices & Reasoning
+
+**Why Leiden over Louvain clustering?**
+- Leiden algorithm is an improvement over Louvain that guarantees well-connected communities
+- Better for large datasets (161K cells) where Louvain can produce disconnected clusters
+- **Learning**: Algorithm choice matters for large-scale data—Leiden is now the standard for single-cell analysis
+
+**Why PCA before UMAP?**
+- UMAP is computationally expensive on high-dimensional data
+- PCA reduces dimensions while preserving most variance (typically 50-100 PCs capture >90% variance)
+- UMAP on PCA space is faster and often produces better results than UMAP on raw data
+- **Learning**: Dimensionality reduction is a two-step process—PCA for linear reduction, UMAP for non-linear embedding
+
+**Why Highly Variable Genes (HVG)?**
+- Most genes are not informative for cell type identity (low variance across cells)
+- Focusing on HVGs reduces noise and computational cost
+- Typically ~1,500-3,000 HVGs capture most biological signal
+- **Learning**: Feature selection is critical—more features isn't always better, especially with noisy single-cell data
+
+### Comparison: Python vs R Implementation
+
+**Why implement in both languages?**
+- Demonstrates flexibility and understanding of both ecosystems
+- Python/Scanpy: Better for large datasets and custom algorithms
+- R/Seurat: Better for standard workflows and publication-quality plots
+- **Learning**: Different tools have different strengths—being bilingual makes you more versatile
+
+**Key Differences Learned:**
+- Scanpy uses dispersion-based HVG selection; Seurat uses VST (Variance Stabilizing Transformation)
+- Scanpy defaults to Leiden; Seurat defaults to Louvain (though Leiden is available)
+- Scanpy uses matplotlib; Seurat uses ggplot2 (more publication-ready by default)
+- **Learning**: The underlying algorithms are similar, but the implementations and defaults differ—understanding both helps choose the right tool
+
 ## 📖 Methods Summary
 
 ### RNA-seq Processing
@@ -316,28 +436,8 @@ conda install -c conda-forge muon
 # Consider using sparse matrices and chunked processing
 ```
 
-## 🤝 Contributing
-
-This is an educational project for learning single-cell multimodal analysis. Feel free to:
-- Extend the analysis with additional modalities (HTO, TCR)
-- Implement alternative integration methods
-- Add differential expression analysis
-- Explore trajectory analysis
-
-## 📧 Contact
-
-For questions about this analysis, please refer to:
-- **Original paper**: Hao et al., Cell (2021)
-- **Dataset**: GEO accession GSE164378
-- **Scanpy documentation**: https://scanpy.readthedocs.io/
-
 ## 📄 License
 
 This analysis code is provided for educational purposes. The GSE164378 dataset is publicly available through GEO and should be used according to the terms specified by the original authors.
 
----
-
-**Last Updated**: November 2025  
-**Analysis Pipeline**: Scanpy + MuData  
-**Python Version**: 3.11+ (recommended)
 
